@@ -1,7 +1,7 @@
 using UnityEngine;
 
 public class FunkyMotion : MonoBehaviour
-{
+{   float z;   
     public float x;
     public float y;
     public float amplitude;
@@ -17,7 +17,7 @@ public class FunkyMotion : MonoBehaviour
 
         float dt= Time.fixedDeltaTime;
 
-        float z = 0.0f;   //Example of frecuency & amplitude // Mathf.Sin(time* 10.0f)*5.0f;   
+      
 
 
         x= x+ (-Mathf.Sin(time*frequency)* frequency*amplitude*dt);
