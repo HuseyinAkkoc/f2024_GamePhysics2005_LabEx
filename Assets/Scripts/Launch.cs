@@ -25,6 +25,7 @@ public class Launch : MonoBehaviour
         // Launch
         if (Input.GetKeyDown(KeyCode.L))
             LaunchProjectile();
+        //
     }
 
     // ***DO NOT PUT INPUT P0LLING IN HERE AS IT ONLY RUNS AT 50HZ BY DEFAULT***
