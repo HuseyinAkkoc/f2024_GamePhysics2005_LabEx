@@ -2,72 +2,105 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Launch : MonoBehaviour
+public class BirdLauncher : MonoBehaviour
 {
-    public float launchAngle;
-    public float launchSpeed;
-    // Launch velocity = launch direction * launch magnitude
-    Vector3 launchVelocity = Vector3.zero;
-    Vector3 launchDirection = Vector3.up;
-    float launchMagnitude = 10.0f;
-    Vector3 acc = Vector3.zero;
-    Vector3 vel = Vector3.zero;
-    Vector3 pos = Vector3.zero;
-    bool launched = false;
+    public GameObject circularBirdPrefab; // Prefab for the circular bird
+    public GameObject squareBirdPrefab;   // Prefab for the square bird
 
-    // Poll input in update to prevent missed inputs, apply single-use changes on-input.
+    private GameObject currentBird;       // Currently selected bird
+    private bool isDragging = false;
+    private Vector3 initialPosition;
+    private Vector3 launchDirection;
+    private float maxLaunchDistance = 5f; // Maximum slingshot stretch distance
+
+    private PhysicsSystem physicsSystem;
+
+    void Start()
+    {
+        // Initialize the physics system
+        physicsSystem = new PhysicsSystem();
+        physicsSystem.gravity = new Vector3(0, -9.8f, 0);
+
+        // Spawn the first bird (default to circular)
+        SpawnBird(circularBirdPrefab);
+    }
+
     void Update()
     {
-        // Reset
-        if (Input.GetKeyDown(KeyCode.R))
-            ResetProjectile();
+        if (Input.GetMouseButtonDown(0))
+        {
+            // Start dragging
+            initialPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            initialPosition.z = 0f;
+            isDragging = true;
+        }
+        else if (Input.GetMouseButton(0) && isDragging)
+        {
+            // Update drag position
+            Vector3 currentMousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            currentMousePosition.z = 0f;
 
-        // Launch
-        if (Input.GetKeyDown(KeyCode.L))
-            LaunchProjectile();
-        //
+            Vector3 dragVector = initialPosition - currentMousePosition;
+
+            // Clamp drag distance
+            if (dragVector.magnitude > maxLaunchDistance)
+            {
+                dragVector = dragVector.normalized * maxLaunchDistance;
+            }
+
+            currentBird.transform.position = initialPosition - dragVector;
+            launchDirection = dragVector;
+        }
+        else if (Input.GetMouseButtonUp(0) && isDragging)
+        {
+            // Launch bird
+            isDragging = false;
+            LaunchBird(launchDirection);
+        }
+
+        // Switch bird type with keyboard input (C for circular, S for square)
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            SpawnBird(circularBirdPrefab);
+        }
+        else if (Input.GetKeyDown(KeyCode.S))
+        {
+            SpawnBird(squareBirdPrefab);
+        }
+
+        // Update physics system
+        physicsSystem.PreStep();
+        physicsSystem.Step(Time.deltaTime);
+        physicsSystem.PostStep();
     }
 
-    // ***DO NOT PUT INPUT P0LLING IN HERE AS IT ONLY RUNS AT 50HZ BY DEFAULT***
-    void FixedUpdate()
+    private void SpawnBird(GameObject birdPrefab)
     {
-        // Update motion
-        float dt = Time.fixedDeltaTime;
-        vel = vel + acc * dt;
-        pos = pos + vel * dt;
+        if (currentBird != null)
+        {
+            Destroy(currentBird);
+        }
 
-        // Render motion
-        transform.position = pos;
-        Debug.DrawLine(transform.position, transform.position + launchDirection * launchMagnitude, Color.magenta);
-        // Disregarding this part of the lab
-        //Debug.DrawLine(transform.position, transform.position + launchDirection * launchMagnitude, Color.magenta);
+        currentBird = Instantiate(birdPrefab, transform.position, Quaternion.identity);
+
+        // Attach a PhysicsBody to the bird
+        PhysicsBody body = currentBird.AddComponent<PhysicsBody>();
+        body.shapeType = birdPrefab == circularBirdPrefab ? ShapeType.SPHERE : ShapeType.PLANE;
+      //  body.restitutionCoefficient = birdPrefab == circularBirdPrefab ? 0.8f : 0.5f; // Example values
+        ///body.frictionCoefficient = birdPrefab == circularBirdPrefab ? 0.3f : 0.6f;   // Example values
+        body.invMass = 1.0f / (birdPrefab == circularBirdPrefab ? 1.0f : 2.0f);       // Example values
+        body.drag = 0.98f; // Adjust drag for air resistance
     }
 
-    void ResetProjectile()
+    private void LaunchBird(Vector3 direction)
     {
-        Debug.Log("Reseting Projectile...");
-        acc = Vector3.zero;
-        vel = Vector3.zero;
-        pos = Vector3.zero;
-        launched = false;
-    }
+        PhysicsBody body = currentBird.GetComponent<PhysicsBody>();
 
-   public  void LaunchProjectile()
-    {
-        // Extra practice: change the velocity to move the projectile
-        // *forward* instead of *right* (yz instead of xy)
-        // **(Note to self -- show curve rendering and motion solving in lecture)**
-        float launchSpeed = 10.0f;
-        float launchAngle = 60.0f;
-        Vector3 launchDirection = new Vector2(
-            Mathf.Cos(launchAngle * Mathf.Deg2Rad),
-            Mathf.Sin(launchAngle * Mathf.Deg2Rad));
-        Debug.Log("Launching Projectile!!!");
-Vector3 launchVelocity = launchDirection * launchSpeed;
-        launchVelocity = launchDirection * launchMagnitude;
-        
-        acc = Physics.gravity;
-        vel = launchVelocity;
-        launched = true;
+        if (body != null)
+        {
+            // Apply launch force
+            float launchForce = direction.magnitude * 10f; // Adjust multiplier as needed
+            body.vel = direction.normalized * launchForce;
+        }
     }
 }
